@@ -5,43 +5,64 @@ async function updateGitHubFile(section: string, newContent: string) {
   const owner = process.env.GITHUB_OWNER
   const repo = process.env.GITHUB_REPO
   const token = process.env.GITHUB_TOKEN
-  const path = `pages/${section}.mdx` // مثلاً pages/radar.mdx
+  
+  // اضافه شدن پسوند .mdx به نام بخش (مثلا radar.mdx)
+  const path = `pages/${section}.mdx` 
+  
+  // آدرس صحیح API گیت‌هاب با کلمه /contents/
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/${path}`
+  let existingContent = ''
+  let fileSha: string | undefined = undefined
 
-  // ۱. دریافت فایل فعلی از گیت‌هاب (برای گرفتن SHA و محتوای قبلی)
+  // ۱. تلاش برای دریافت فایل فعلی
   const getRes = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   })
   
-  console.log('getRes',getRes)
-  if (!getRes.ok) throw new Error('فایل در گیت‌هاب پیدا نشد.')
-  const fileData = await getRes.json()
+  if (getRes.ok) {
+    // فایل وجود دارد، اطلاعاتش را می‌گیریم
+    const fileData = await getRes.json()
+    existingContent = Buffer.from(fileData.content, 'base64').toString('utf-8')
+    fileSha = fileData.sha // برای آپدیت فایل به این کد نیاز داریم
+  } else if (getRes.status === 404) {
+    // فایل وجود ندارد، پس یک هدر پیش‌فرض برایش می‌سازیم تا از صفر ساخته شود
+    console.log(`فایل ${path} پیدا نشد. یک فایل جدید ساخته می‌شود...`)
+    existingContent = `# ${section.toUpperCase()} 📡\n\nاینجا خروجی‌های ایجنت قرار می‌گیرد.\n\n---`
+  } else {
+    throw new Error(`خطای گیت‌هاب: ${getRes.status} ${getRes.statusText}`)
+  }
   
-  // دی‌کد کردن محتوای فعلی از Base64 به متن
-  const existingContent = Buffer.from(fileData.content, 'base64').toString('utf-8')
-  
-  // ترکیب محتوای قبلی با محتوای جدیدی که ایجنت فرستاده
+  // ترکیب محتوای قبلی با دیتای جدید
   const updatedContent = `${existingContent}\n\n${newContent}`
-  
-  // انکد کردن مجدد به Base64 برای ارسال به گیت‌هاب
   const encodedContent = Buffer.from(updatedContent).toString('base64')
 
-  // ۲. ارسال محتوای جدید (کامیت کردن)
+  // بدنه درخواست برای کامیت
+  const bodyData: any = {
+    message: `🤖 Update ${section} via Peste Agent`,
+    content: encodedContent,
+  }
+  
+  // اگر فایل از قبل وجود داشت، sha را ارسال می‌کنیم تا اوررایت (Overwrite) شود
+  if (fileSha) {
+    bodyData.sha = fileSha
+  }
+
+  // ۲. ارسال درخواست PUT برای کامیت (آپدیت یا ساخت)
   const putRes = await fetch(url, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      message: `🤖 Update ${section} via Peste Agent`, // پیام کامیت
-      content: encodedContent,
-      sha: fileData.sha, // ارسال SHA برای تایید آپدیت فایل قبلی الزامی است
-    })
+    body: JSON.stringify(bodyData)
   })
 
-  if (!putRes.ok) throw new Error('خطا در ذخیره فایل در گیت‌هاب.')
+  if (!putRes.ok) {
+    const errorData = await putRes.json()
+    throw new Error(`خطا در ذخیره فایل: ${JSON.stringify(errorData)}`)
+  }
+  
   return await putRes.json()
 }
 
