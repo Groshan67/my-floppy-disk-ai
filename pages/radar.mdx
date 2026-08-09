@@ -8,6 +8,22 @@ import projects from '../data/radar.json'
 ---
 
 <div className="mt-10 flex flex-col gap-8">
+  <ProjectView 
+    projectData={{
+      "title": "uv",
+      "url": "https://github.com/astral-sh/uv",
+      "description": "An extremely fast Python package and project manager written in Rust. Designed as a unified replacement for pip, pip-tools, virtualenv, poetry, and pyenv.",
+      "image": "https://opengraph.githubassets.com/1/astral-sh/uv",
+      "tags": [
+            "PYTHON",
+            "RUST",
+            "DEV-TOOLS",
+            "PACKAGE-MANAGER"
+      ],
+      "whyItMatters": "It drastically speeds up CI/CD pipelines and local development by installing Python packages 10-100x faster than standard tools.",
+      "stars": 42000
+}} 
+  />
   {projects.map((project, index) => (
     <ProjectView 
       key={project.id || index} 
