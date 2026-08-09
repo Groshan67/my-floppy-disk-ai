@@ -1,54 +1,65 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-// تابع کمکی برای آپدیت فایل در گیت‌هاب
-async function updateGitHubFile(section: string, newContent: string) {
+// تابع کمکی برای آپدیت یا ساخت فایل در گیت‌هاب
+async function updateGitHubFile(section: string, projectData: any) {
   const owner = process.env.GITHUB_OWNER
   const repo = process.env.GITHUB_REPO
   const token = process.env.GITHUB_TOKEN
   
-  // اضافه شدن پسوند .mdx به نام بخش (مثلا radar.mdx)
   const path = `pages/${section}.mdx` 
-  
-  // آدرس صحیح API گیت‌هاب با کلمه /contents/
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
 
   let existingContent = ''
   let fileSha: string | undefined = undefined
 
-  // ۱. تلاش برای دریافت فایل فعلی
+  // ۱. دریافت فایل فعلی از گیت‌هاب
   const getRes = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   })
   
   if (getRes.ok) {
-    // فایل وجود دارد، اطلاعاتش را می‌گیریم
     const fileData = await getRes.json()
     existingContent = Buffer.from(fileData.content, 'base64').toString('utf-8')
-    fileSha = fileData.sha // برای آپدیت فایل به این کد نیاز داریم
+    fileSha = fileData.sha
   } else if (getRes.status === 404) {
-    // فایل وجود ندارد، پس یک هدر پیش‌فرض برایش می‌سازیم تا از صفر ساخته شود
-    console.log(`فایل ${path} پیدا نشد. یک فایل جدید ساخته می‌شود...`)
-    existingContent = `# ${section.toUpperCase()} 📡\n\nاینجا خروجی‌های ایجنت قرار می‌گیرد.\n\n---`
+    console.log(`فایل ${path} پیدا نشد. ساخت فایل اولیه...`)
+    // ساختار اولیه فایل MDX در صورت عدم وجود
+    existingContent = `import { ProjectView } from '../components/ProjectView'\n\n# ${section.toUpperCase()} 📡\n\nاینجا خروجی‌های ایجنت قرار می‌گیرد.\n\n---\n\n<div className="mt-10 flex flex-col gap-8">\n</div>`
   } else {
     throw new Error(`خطای گیت‌هاب: ${getRes.status} ${getRes.statusText}`)
   }
+
+  // ۲. ساخت کد JSX کامپوننت ProjectView با تمام مقادیر
+  const componentJsx = `  <ProjectView 
+    projectData={${JSON.stringify(projectData, null, 6)}} 
+  />`
+
+  // ۳. تزریق کامپوننت جدید درون کانتینر
+  let updatedContent = ''
   
-  // ترکیب محتوای قبلی با دیتای جدید
-  const updatedContent = `${existingContent}\n\n${newContent}`
+  if (existingContent.includes('<div className="mt-10 flex flex-col gap-8">')) {
+    // تزریق پروژه جدید در بالاتربن قسمت کانتینر (جدیدترین‌ها اول بیایند)
+    updatedContent = existingContent.replace(
+      '<div className="mt-10 flex flex-col gap-8">',
+      `<div className="mt-10 flex flex-col gap-8">\n${componentJsx}`
+    )
+  } else {
+    // اگر کانتینر وجود نداشت، به انتهای فایل اضافه شود
+    updatedContent = `${existingContent}\n\n${componentJsx}`
+  }
+
   const encodedContent = Buffer.from(updatedContent).toString('base64')
 
-  // بدنه درخواست برای کامیت
   const bodyData: any = {
-    message: `🤖 Update ${section} via Peste Agent`,
+    message: `🤖 Add ${projectData.title || 'project'} to ${section} via Agent`,
     content: encodedContent,
   }
   
-  // اگر فایل از قبل وجود داشت، sha را ارسال می‌کنیم تا اوررایت (Overwrite) شود
   if (fileSha) {
     bodyData.sha = fileSha
   }
 
-  // ۲. ارسال درخواست PUT برای کامیت (آپدیت یا ساخت)
+  // ۴. ارسال کامیت به گیت‌هاب
   const putRes = await fetch(url, {
     method: 'PUT',
     headers: {
@@ -73,18 +84,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: 'Unauthorized!' })
   }
 
-  const { section, title, description, url } = req.body
+  // دریافت تمام مقادیر ارسال شده از bot.js
+  const { section = 'radar', ...projectData } = req.body
 
   try {
-    // ساختاربندی محتوایی که قرار است اضافه شود
-    const newMdxContent = `### ${title}\n${description}\n\n[لینک ضمیمه](${url})\n\n---`
+    // فراخوانی تابع کامیت گیت‌هاب
+    await updateGitHubFile(section, projectData)
 
-    // فراخوانی تابع گیت‌هاب
-    await updateGitHubFile(section, newMdxContent)
-
-    return res.status(200).json({ message: 'محتوا با موفقیت کامیت شد!' })
-  } catch (error) {
-    console.error(error)
-    return res.status(500).json({ message: 'خطا در کامیت گیت‌هاب' })
+    return res.status(200).json({ message: 'پروژه با موفقیت به گیت‌هاب اضافه شد!' })
+  } catch (error: any) {
+    console.error('[API Agent Error]:', error)
+    return res.status(500).json({ message: 'خطا در کامیت گیت‌هاب', error: error.message })
   }
 }

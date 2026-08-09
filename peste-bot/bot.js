@@ -17,6 +17,8 @@ bot.start((ctx) => ctx.reply('Agent is online and ready.'));
 // تابع انتشار که مطمئن می‌شود image همیشه وجود دارد
 async function processAndPublish(projectData) {
   try {
+    
+    console.log('projectData',projectData)
     // تعیین تصویر پیش‌فرض در صورت خالی بودن مقادیر
     const defaultImage = `https://opengraph.githubassets.com/1/${projectData.title.replace(/\s+/g, '-')}`;
     
@@ -108,7 +110,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ۲. کرون جاب خودکار
-cron.schedule('31 14 * * *', async () => {
+cron.schedule('34 14 * * *', async () => {
   console.log('[Agent] Cron Job Triggered...');
   
   try {
@@ -117,10 +119,10 @@ Return ONLY a raw JSON object with no markdown fences, formatted exactly like th
 {
   "title": "Project Title",
   "url": "https://github.com/...",
-  "description": "2-3 line Persian summary",
+  "description": "2-3 line English summary",
   "image": "https://raw.githubusercontent.com/... or og-image link if known, else leave empty string",
   "tags": ["TAG1", "TAG2"],
-  "whyItMatters": "Persian value sentence",
+  "whyItMatters": "English value sentence",
   "stars": 1000
 }`;
     

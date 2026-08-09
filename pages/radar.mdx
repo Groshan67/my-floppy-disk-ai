@@ -1,22 +1,17 @@
 import { ProjectView } from '../components/ProjectView'
+import projects from '../data/radar.json'
 
 # Radar 📡
 
+
+
 ---
 
-<div className="mt-10">
-  <ProjectView 
-    projectData={{
-      title: "OpenDray",
-      description: "Persistent infrastructure for AI coding agents. OpenDray keeps AI coding sessions running on your own server. Connect from anywhere, reply from any channel, and never lose context.",
-      url: "https://opendray.dev/"
-    }} 
-  />
+<div className="mt-10 flex flex-col gap-8">
+  {projects.map((project, index) => (
+    <ProjectView 
+      key={project.id || index} 
+      projectData={project} 
+    />
+  ))}
 </div>
-
-### uv
-ابزاری فوق‌العاده سریع برای مدیریت پروژه‌ها و پکیج‌های پایتون که با زبان راست توسعه یافته است. این ابزار یک جایگزین یکپارچه و مدرن برای ابزارهای سنتی مانند pip، pip-tools و virtualenv می‌باشد.
-
-[لینک ضمیمه](https://github.com/astral-sh/uv)
-
----
